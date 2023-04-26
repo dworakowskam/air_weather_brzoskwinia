@@ -17,7 +17,10 @@ pm25_limit = 15.0
 
 
 
-def plot_air_pollution_hourly(df, pollutant, title, ylabel,limit, axhline_label):
+def calculate_pm_mean(df_column):
+    return df_column.mean()
+    
+def plot_air_pollution_hourly(df, pollutant, title, ylabel,limit, limit_label, pm_mean, mean_label):
     plt.figure(figsize=(15, 5))
     x = df.index
     y = df[pollutant]
@@ -27,15 +30,16 @@ def plot_air_pollution_hourly(df, pollutant, title, ylabel,limit, axhline_label)
     plt.title(title, fontsize=20)
     plt.xticks(range(min(x.astype(int)), max(x.astype(int))+1))
     plt.yticks(range(0, 55, 5))
-    plt.axhline(limit, color="red", linestyle="--")
-    plt.legend([axhline_label], loc='upper right')
+    plt.axhline(limit, color="red", linestyle="--", label=limit_label)
+    plt.axhline(pm_mean, color="#12304a", linestyle="--", label=mean_label)
+    plt.legend(loc='upper right')
     axes = plt.gca()
     axes.yaxis.grid()
     axes.set_axisbelow(True)
     plt.show()
     
 def plot_air_pollution_depending_on_weather(df, weather_factor, pollutant, title, 
-        ylabel, xlabel, xticks_range, yticks_range, limit, axhline_label):
+        ylabel, xlabel, xticks_range, yticks_range, limit, limit_label):
     plt.figure(figsize=(15, 5))
     x = df[weather_factor]
     y = df[pollutant]
@@ -45,7 +49,7 @@ def plot_air_pollution_depending_on_weather(df, weather_factor, pollutant, title
     plt.title(title, fontsize=20)
     plt.xticks(xticks_range)
     plt.yticks(yticks_range)
-    plt.axhline(limit, color="red", linestyle="--", label=axhline_label)
+    plt.axhline(limit, color="red", linestyle="--", label=limit_label)
     plt.legend(loc='upper right')
     axes = plt.gca()
     axes.yaxis.grid()
@@ -106,9 +110,9 @@ if __name__ == "__main__":
     df_all.dropna(inplace=True)
     
     # Calculate mean values of PMs
-    pm1_mean = df_all.PM1.mean()
-    pm25_mean = df_all.PM25.mean()
-    pm10_mean = df_all.PM10.mean()
+    pm1_mean = calculate_pm_mean(df_all.PM1)
+    pm25_mean = calculate_pm_mean(df_all.PM25)
+    pm10_mean = calculate_pm_mean(df_all.PM10)
     
     # Plot charts showing air pollution hourly
     air_hourly = pd.pivot_table(df_all, index='hour', values=['PM1', 'PM10', 'PM25'], aggfunc='mean')
@@ -127,8 +131,10 @@ if __name__ == "__main__":
     axes.yaxis.grid()
     axes.set_axisbelow(True)
     plt.show()
-    plot_air_pollution_hourly(air_hourly, 'PM25', 'PM2.5 air pollution', 'PM2.5 [μg/m³]', pm25_limit, 'PM2.5 average daily limit')
-    plot_air_pollution_hourly(air_hourly, 'PM10', 'PM10 air pollution', 'PM10 [μg/m³]', pm10_limit, 'PM10 average daily limit') 
+    plot_air_pollution_hourly(air_hourly, 'PM25', 'PM2.5 air pollution', 'PM2.5 [μg/m³]', 
+                              pm25_limit, 'PM2.5 average daily limit', pm25_mean, 'PM2.5 mean value')
+    plot_air_pollution_hourly(air_hourly, 'PM10', 'PM10 air pollution', 'PM10 [μg/m³]', 
+                              pm10_limit, 'PM10 average daily limit', pm10_mean, 'PM10 mean value') 
     
     # Plot charts showing air pollution depending on weather
     plot_air_pollution_depending_on_weather(df_all, 'Temperature', 'PM25', 'Dependence of PM2.5 on temperature', 
