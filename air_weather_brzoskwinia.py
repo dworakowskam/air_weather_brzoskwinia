@@ -9,6 +9,8 @@ Created on Fri Apr 14 12:50:59 2023
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
 
 filepath = 'C:/MD/Dokumenty/python/data_analysis/air_weather/airly.csv'
@@ -55,6 +57,12 @@ def plot_air_pollution_depending_on_weather(df, weather_factor, pollutant, title
     axes.yaxis.grid()
     axes.set_axisbelow(True)
     plt.show()
+    
+def create_data_series_for_boxplots(x, y, hum_range):
+    data = pd.DataFrame((df_all[(df_all['Humidity'] >= x) & (df_all['Humidity'] < y)]).reset_index())
+    data = data[data.columns[7]]
+    data.rename(hum_range, inplace = True)
+    return data    
     
     
     
@@ -114,7 +122,7 @@ if __name__ == "__main__":
     pm25_mean = calculate_pm_mean(df_all.PM25)
     pm10_mean = calculate_pm_mean(df_all.PM10)
     
-    # Plot charts showing air pollution hourly
+    # Create charts showing air pollution hourly
     air_hourly = pd.pivot_table(df_all, index='hour', values=['PM1', 'PM10', 'PM25'], aggfunc='mean')
     plt.figure(figsize=(15, 5))
     x = air_hourly.index
@@ -136,7 +144,7 @@ if __name__ == "__main__":
     plot_air_pollution_hourly(air_hourly, 'PM10', 'PM10 air pollution', 'PM10 [μg/m³]', 
                               pm10_limit, 'PM10 average daily limit', pm10_mean, 'PM10 mean value') 
     
-    # Plot charts showing air pollution depending on weather
+    # Create charts showing air pollution depending on weather
     plot_air_pollution_depending_on_weather(df_all, 'Temperature', 'PM25', 'Dependence of PM2.5 on temperature', 
         'PM2.5 [μg/m³]', 'Temperature [ºC]', range(0, 21), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Temperature', 'PM10', 'Dependence of PM10 on temperature', 
@@ -149,6 +157,58 @@ if __name__ == "__main__":
         'PM2.5 [μg/m³]', 'Humidity [%]', range(30, 100, 5), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Humidity', 'PM10', 'Dependence of PM10 on humidity', 
         'PM10 [μg/m³]', 'Humidity [%]', range(30, 100, 5), range(0, 55, 5), pm10_limit, 'PM10 average daily limit')
-      
+    
+    # Create correlation matrix
+    df_corr = df_all[['PM1', 'PM25', 'PM10', 'Pressure', 'Humidity', 'Temperature', 'hour']]
+    corr_matrix = df_corr.corr()
+    sns.heatmap(corr_matrix, annot=True, cmap="crest")
+    plt.show()
+    
+    # Create box plots showing PM10 concentration depending on humidity range
+    humidity_25_30 = create_data_series_for_boxplots(25, 30, '25%-30%')
+    humidity_30_35 = create_data_series_for_boxplots(30, 35, '30%-35%')
+    humidity_35_40 = create_data_series_for_boxplots(35, 40, '35%-40%')  
+    humidity_40_45 = create_data_series_for_boxplots(40, 45, '40%-45%')
+    humidity_45_50 = create_data_series_for_boxplots(45, 50, '45%-50%')  
+    humidity_50_55 = create_data_series_for_boxplots(50, 55, '50%-55%')
+    humidity_55_60 = create_data_series_for_boxplots(55, 60, '55%-60%')  
+    humidity_60_65 = create_data_series_for_boxplots(60, 65, '60%-65%')  
+    humidity_65_70 = create_data_series_for_boxplots(65, 70, '65%-70%')   
+    humidity_70_75 = create_data_series_for_boxplots(70, 75, '70%-75%')   
+    humidity_75_80 = create_data_series_for_boxplots(75, 80, '75%-80%')
+    humidity_80_85 = create_data_series_for_boxplots(80, 85, '80%-85%')
+    humidity_85_90 = create_data_series_for_boxplots(85, 90, '85%-90%') 
+    humidity_90_95 = create_data_series_for_boxplots(90, 95, '90%-95%')                         
+    boxplots = pd.concat([humidity_25_30, humidity_30_35, humidity_35_40, humidity_40_45, humidity_45_50, 
+                          humidity_50_55, humidity_55_60, humidity_60_65, humidity_65_70, humidity_70_75, 
+                          humidity_75_80, humidity_80_85, humidity_85_90, humidity_90_95], axis=1)
+    plt.figure(figsize=(15,5))
+    plt.xlabel('Humidity ranges', fontsize=12)
+    plt.ylabel('PM10[μg/m³]', fontsize=12)
+    plt.title('PM10 in humidity ranges', fontsize=20)
+    sns.boxplot(boxplots)
+    plt.show()
+    
+    # Extract a date from 'fromDateTime' column into separate column
+    df_all['date'] = df_all['fromDateTime'].apply(lambda x: pd.Series(x.date()))
+    exceedings_daily = pd.pivot_table(df_all, index='date', values=['PM10'], aggfunc='mean')
+    exceedings_daily['exceedings'] = ''
+    exceeded = exceedings_daily['PM10'] > 45.0 
+    exceedings_daily.loc[exceeded, 'exceedings'] = 'Exceeded'
+    not_exceeded = exceedings_daily['PM10'] <= 45.0 
+    exceedings_daily.loc[not_exceeded, 'exceedings'] = 'Not exceeded'
+    plt.figure(figsize=(15, 5))
+    sns.scatterplot(exceedings_daily, x='date', y='PM10', hue='exceedings')
+    plt.xlabel('Date', fontsize=12)
+    plt.ylabel('PM10 [μg/m³]', fontsize=12)
+    plt.title('PM10 daily exceedings', fontsize=20)
+    print(exceedings_daily.index[0])
+    plt.xticks(exceedings_daily.index[0:18], rotation=45)
+    plt.yticks(range(0, 35, 5))
+    axes = plt.gca()
+    axes.yaxis.grid()
+    axes.set_axisbelow(True)
+    plt.show()
+    
     # Save concatenated data frame
     df_all.to_csv(filepath, index=False)
