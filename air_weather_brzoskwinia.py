@@ -10,7 +10,7 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
+
 
 
 filepath = 'C:/MD/Dokumenty/python/data_analysis/air_weather/airly.csv'
@@ -91,6 +91,10 @@ if __name__ == "__main__":
     df_new[['indexes']] = df_new['indexes'].apply(lambda x: pd.Series(str(e) for e in x))
     df_new[['standards']] = df_new['standards'].apply(lambda x: pd.Series(' '.join(str(e) for e in x)))
     
+    # Delete rows with missing values
+    df_new.dropna(inplace=True)
+    df_new.reset_index()
+    
     #  Extract numeric values of parameters from every parameter column and change its type to float
     df_new['PM1'] = df_new['PM1'].apply(lambda x: pd.Series(str(x)[25:-1]))
     df_new['PM1'] = df_new['PM1'].astype(float)
@@ -112,16 +116,19 @@ if __name__ == "__main__":
     # Extract an hour from 'fromDateTime' column into separate column
     df_new['hour'] = df_new['fromDateTime'].apply(lambda x: pd.Series(x.hour))
     
-    # Concatenate old and new data frames, drop duplicates and missing values
+    # Extract a date from 'fromDateTime' column into separate column
+    df_new['date'] = df_new['fromDateTime'].apply(lambda x: pd.Series(x.date()))
+    
+    # Concatenate old and new data frames, drop duplicates
     df_all = pd.concat([df_old, df_new])
     df_all = df_all.drop_duplicates(subset=['fromDateTime'], ignore_index=True)
-    df_all.dropna(inplace=True)
+    df_all['date'] = pd.to_datetime(df_all['date'])
     
     # Calculate mean values of PMs
     pm1_mean = calculate_pm_mean(df_all.PM1)
     pm25_mean = calculate_pm_mean(df_all.PM25)
     pm10_mean = calculate_pm_mean(df_all.PM10)
-    
+           
     # Create charts showing air pollution hourly
     air_hourly = pd.pivot_table(df_all, index='hour', values=['PM1', 'PM10', 'PM25'], aggfunc='mean')
     plt.figure(figsize=(15, 5))
@@ -146,13 +153,13 @@ if __name__ == "__main__":
     
     # Create charts showing air pollution depending on weather
     plot_air_pollution_depending_on_weather(df_all, 'Temperature', 'PM25', 'Dependence of PM2.5 on temperature', 
-        'PM2.5 [μg/m³]', 'Temperature [ºC]', range(0, 21), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
+        'PM2.5 [μg/m³]', 'Temperature [ºC]', range(0, 36), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Temperature', 'PM10', 'Dependence of PM10 on temperature', 
-        'PM10 [μg/m³]', 'Temperature [ºC]', range(0, 21), range(0, 55, 5), pm10_limit, 'PM10 average daily limit')
+        'PM10 [μg/m³]', 'Temperature [ºC]', range(0, 36), range(0, 55, 5), pm10_limit, 'PM10 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Pressure', 'PM25', 'Dependence of PM2.5 on pressure', 
-        'PM2.5 [μg/m³]', 'Pressure [hPa]', range(1000, 1030, 5), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
+        'PM2.5 [μg/m³]', 'Pressure [hPa]', range(1000, 1035, 5), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Pressure', 'PM10', 'Dependence of PM10 on pressure', 
-        'PM10 [μg/m³]', 'Pressure [hPa]', range(1000, 1030, 5), range(0, 55, 5), pm10_limit, 'PM10 average daily limit')
+        'PM10 [μg/m³]', 'Pressure [hPa]', range(1000, 1035, 5), range(0, 55, 5), pm10_limit, 'PM10 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Humidity', 'PM25', 'Dependence of PM2.5 on humidity', 
         'PM2.5 [μg/m³]', 'Humidity [%]', range(30, 100, 5), range(0, 55, 5), pm25_limit, 'PM2.5 average daily limit')
     plot_air_pollution_depending_on_weather(df_all, 'Humidity', 'PM10', 'Dependence of PM10 on humidity', 
@@ -189,8 +196,7 @@ if __name__ == "__main__":
     sns.boxplot(boxplots)
     plt.show()
     
-    # Extract a date from 'fromDateTime' column into separate column
-    df_all['date'] = df_all['fromDateTime'].apply(lambda x: pd.Series(x.date()))
+    # Create scatter plot showing days with PM10 over limit
     exceedings_daily = pd.pivot_table(df_all, index='date', values=['PM10'], aggfunc='mean')
     exceedings_daily['exceedings'] = ''
     exceeded = exceedings_daily['PM10'] > 45.0 
@@ -199,15 +205,19 @@ if __name__ == "__main__":
     exceedings_daily.loc[not_exceeded, 'exceedings'] = 'Not exceeded'
     plt.figure(figsize=(15, 5))
     sns.scatterplot(exceedings_daily, x='date', y='PM10', hue='exceedings')
-    plt.xlabel('Date', fontsize=12)
+    plt.xlabel('Month', fontsize=12)
     plt.ylabel('PM10 [μg/m³]', fontsize=12)
     plt.title('PM10 daily exceedings', fontsize=20)
-    print(exceedings_daily.index[0])
-    plt.xticks(exceedings_daily.index[0:18], rotation=45)
-    plt.yticks(range(0, 35, 5))
+    exceedings_daily['Month'] = exceedings_daily.index
+    exceedings_daily['Month'] = exceedings_daily['Month'].apply(lambda x: pd.Series(str(x)[5:7]))
+    months = {'04': 'April', '05': 'May', '06': 'June', '07': 'July', '08': 'August'}
+    exceedings_daily.replace({'Month': months}, inplace=True)
+    plt.xticks(ticks=exceedings_daily.index[3:109:25], labels=exceedings_daily['Month'][3:109:25], rotation=45)
+    plt.yticks(range(0, 45, 5))
     axes = plt.gca()
     axes.yaxis.grid()
     axes.set_axisbelow(True)
+    axes.legend().set_title('Threshold state')
     plt.show()
     
     # Save concatenated data frame
